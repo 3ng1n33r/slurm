@@ -1,0 +1,82 @@
+  - name: "Install app dependencies"
+    ansible.builtin.yum:
+      name: "{{ item }}"
+      update_cache: yes
+      state: present
+    with_items:
+      #- "gcc-6"
+      - "epel-release"
+      - "gcc"
+      - "patch"
+      - "bzip2"
+      - "openssl-devel"
+      - "libyaml-devel"
+      - "libffi-devel"
+      - "readline-devel"
+      - "zlib-devel"
+      - "gdbm-devel"
+      - "ncurses-devel"
+      - "git-core"
+      - "postgresql-devel"
+      - "libxml2-devel"
+      - "libxslt"
+      - "libxslt-devel"
+      - "nodejs"
+    become: true
+  
+  - name: "Run rbenv installer if .rbenv/bin/rbenv does not exist on the remote host"
+    ansible.builtin.script: files/rbenv_installer.sh
+    args:
+      creates: /home/s045724/.rbenv/bin/rbenv
+
+  - name: "Copy xpaste files"
+    ansible.builtin.copy:
+      src: files/xpaste/
+      dest: /app/
+      owner: s045724
+      group: s045724
+      mode: 0644
+      force: no
+    become: true
+  
+  - name: "Replace main nginx config"
+    ansible.builtin.copy:
+      src: files/nginx.conf
+      dest: /etc/nginx/nginx.conf
+      owner: s045724
+      group: s045724
+      mode: 0644
+    become: true
+  
+  - name: "Run bundle config"
+    ansible.builtin.command: bash -lc "cd /app/ && bundle config build.nokogiri --use-system-libraries"
+  
+  - name: "Run bundle install"
+    ansible.builtin.command: bash -lc "cd /app/ && bundle install --clean --no-cache --without development"
+    register: result
+    failed_when:
+      - result.rc == 0
+      - '"No such" not in result.stdout'
+  
+  - name: "Copy service file"
+    ansible.builtin.copy:
+      src: files/xpaste.service
+      dest: /etc/systemd/system/
+      owner: s045724
+      group: s045724
+      mode: 0644
+    become: true
+  
+  - name: "Copy env file"
+    ansible.builtin.copy:
+      src: files/env.conf
+      dest: /etc/systemd/system/xpaste.service.d/
+      owner: s045724
+      group: s045724
+      mode: 0644
+    become: true
+  
+  - name: "Reload systemctl"
+    ansible.builtin.command: systemctl daemon-reload
+    become: true
+

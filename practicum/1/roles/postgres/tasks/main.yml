@@ -1,0 +1,46 @@
+- name: "Initialise variables"
+  include_role:
+    name: geerlingguy.postgresql
+    tasks_from: variables
+
+- name: "Setup postgres"
+  include_role:
+    name: geerlingguy.postgresql
+    tasks_from: setup-RedHat
+
+- name: "Init postgres"
+  include_role:
+    name: geerlingguy.postgresql
+    tasks_from: initialize
+
+- name: "Start PostgreSQL server"
+  systemd:
+    name: "{{ postgresql_daemon }}"
+    state: started
+
+- name: "Configure postgres"
+  include_role:
+    name: geerlingguy.postgresql
+    tasks_from: configure
+
+- name: "Configure users"
+  include_role:
+    name: geerlingguy.postgresql
+    tasks_from: users
+      
+- name: "Create a new database {{ db_name }}"
+  community.postgresql.postgresql_db:
+    name: "{{ db_name }}"
+    state: present
+  become: true
+  become_user: postgres
+
+- name: "Connect to {{ db_name }} database, create user {{ db_user }}, and grant access to database"
+  community.postgresql.postgresql_user:
+    db: "{{ db_name }}"
+    name: "{{ db_user }}"
+    password: "{{ db_password }}"
+    priv: "ALL/ALL"
+    expires: infinity
+  become: true
+  become_user: postgres

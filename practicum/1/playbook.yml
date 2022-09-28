@@ -1,0 +1,32 @@
+---
+- name: "App install and configuration" 
+  hosts: app
+  vars:
+    db_name: xpaste
+    db_user: xpaste
+    db_password: password
+    postgres_users_no_log: false
+    postgresql_users:
+      - name: postgres
+        password: password
+  
+  pre_tasks:
+  - name: "Put SELinux in permissive mode"
+    ansible.posix.selinux:
+      policy: targeted
+      state: permissive
+    become: true
+
+  roles:
+     - { name: postgres, become: true }
+     - { name: geerlingguy.nginx , become: true }   
+     - webapp  
+  
+  tasks:  
+  - name: "Start service xpaste"
+    ansible.builtin.service:
+      name: xpaste.service
+      state: started
+      enabled: yes
+    become: true
+ 
