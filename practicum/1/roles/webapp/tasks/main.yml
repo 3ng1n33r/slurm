@@ -116,9 +116,9 @@
     notify:
       - Reload systemctl
 
-  - name: "Start service xpaste"
+  - name: "Start service {{ app_name }}"
     ansible.builtin.service:
-      name: xpaste.service
+      name: '{{ app_name }}.service'
       state: started
       enabled: yes
     become: true
