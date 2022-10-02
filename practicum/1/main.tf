@@ -52,6 +52,10 @@ resource "yandex_compute_instance" "vm-1" {
   
   provisioner "local-exec" {
     command = "echo \"[app]\ncentos7 ansible_host=${yandex_compute_instance.vm-1.network_interface.0.nat_ip_address} ansible_user=s045724\" | tee hosts.ini"
+  }
+
+  provisioner "local-exec" {
+    command = "ansible-galaxy collection install -r requirements.yml && ansible-galaxy role install -r requirements.yml"
   }  
 }
 
