@@ -30,13 +30,13 @@ http {
     keepalive_timeout  65;
 
     upstream southbridge {
-        server unix:/tmp/puma.sock fail_timeout=0;
+        server unix:{{ app_socket }} fail_timeout=0;
     }
 
     server {
         listen 80 default_server;
         server_name _;
-        root /app/public;
+        root {{ app_path }}public;
 
         error_page 503 /503.html;
         error_page 500 502 504 /500.html;
@@ -48,7 +48,7 @@ http {
 
         location = /robots.txt {
             try_files $uri @backend;
-            root /app/public;
+            root {{ app_path }}public;
         }
 
         location @backend {

@@ -1,46 +1,51 @@
-- name: "Initialise variables"
-  include_role:
-    name: geerlingguy.postgresql
-    tasks_from: variables
+  - name: "Installing PostgreSQL and deps"
+    ansible.builtin.yum:
+      name: "{{ item }}"
+      state: present
+      update_cache: yes
+    with_items:
+      - postgresql
+      - postgresql-server
+      - postgresql-contrib
+      - postgresql-libs
+      - python-psycopg2
+  
+  - name: "Check {{ postgresql_data_dir }}/pg_hba.conf exist"
+    ansible.builtin.stat:
+      path: "{{ postgresql_data_dir }}/pg_hba.conf"
+    register: postgres_data
 
-- name: "Setup postgres"
-  include_role:
-    name: geerlingguy.postgresql
-    tasks_from: setup-RedHat
+  - name: "Check {{ postgresql_data_dir }} is absent"
+    ansible.builtin.file:
+      path: "{{ postgresql_data_dir }}"
+      state: absent
+    when: not postgres_data.stat.exists
+  
+  - name: "Initializing database"
+    ansible.builtin.command: "{{ postgresql_bin_path }}/initdb -D {{ postgresql_data_dir }}"
+    become: true
+    become_user: postgres
+    when: not postgres_data.stat.exists
+  
+  - name: "Start service {{ postgresql_daemon }}"
+    ansible.builtin.service:
+      name: "{{ postgresql_daemon }}"
+      state: started
+      enabled: true
+  
+  - name: "Create a new database {{ db_name }}"
+    community.postgresql.postgresql_db:
+      name: "{{ db_name }}"
+      state: present
+    become: true
+    become_user: postgres
 
-- name: "Init postgres"
-  include_role:
-    name: geerlingguy.postgresql
-    tasks_from: initialize
-
-- name: "Start PostgreSQL server"
-  systemd:
-    name: "{{ postgresql_daemon }}"
-    state: started
-
-- name: "Configure postgres"
-  include_role:
-    name: geerlingguy.postgresql
-    tasks_from: configure
-
-- name: "Configure users"
-  include_role:
-    name: geerlingguy.postgresql
-    tasks_from: users
-      
-- name: "Create a new database {{ db_name }}"
-  community.postgresql.postgresql_db:
-    name: "{{ db_name }}"
-    state: present
-  become: true
-  become_user: postgres
-
-- name: "Connect to {{ db_name }} database, create user {{ db_user }}, and grant access to database"
-  community.postgresql.postgresql_user:
-    db: "{{ db_name }}"
-    name: "{{ db_user }}"
-    password: "{{ db_password }}"
-    priv: "ALL/ALL"
-    expires: infinity
-  become: true
-  become_user: postgres
+  - name: "Connect to {{ db_name }} database, create user {{ db_user }}, and grant access to {{ db_name }} database"
+    community.postgresql.postgresql_user:
+      db: "{{ db_name }}"
+      name: "{{ db_user }}"
+      password: "{{ db_password }}"
+      priv: "ALL/ALL"
+      expires: infinity
+    become: true
+    become_user: postgres

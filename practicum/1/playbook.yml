@@ -1,14 +1,17 @@
 ---
-- name: "App install and configuration" 
+- name: "{{ app_name }} install and configure" 
   hosts: app
   vars:
+    app_name: xpaste
+    app_path: /app/
+    app_socket: /tmp/puma.sock
+    app_user: s045724
+    db_host: 127.0.0.1
+    db_port: 5432
     db_name: xpaste
     db_user: xpaste
     db_password: password
-    postgres_users_no_log: false
-    postgresql_users:
-      - name: postgres
-        password: password
+    secret_key: secret
   
   pre_tasks:
   - name: "Put SELinux in permissive mode"
@@ -22,11 +25,9 @@
      - { name: geerlingguy.nginx , become: true }   
      - webapp  
   
-  tasks:  
-  - name: "Start service xpaste"
+  post_tasks:
+  - name: "Ensure {{ app_name }} service is running"
     ansible.builtin.service:
-      name: xpaste.service
+      name: '{{ app_name }}.service'
       state: started
-      enabled: yes
-    become: true
- 
+    become: true 

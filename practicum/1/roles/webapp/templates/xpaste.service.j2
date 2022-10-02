@@ -1,0 +1,12 @@
+[Unit]
+Description=Service for {{ app_name }} app
+After=network.target
+
+[Service]
+User={{ app_user }}
+WorkingDirectory={{ app_path }}
+ExecStart=/bin/bash -lc 'bundle exec rake db:migrate && bundle exec puma -b unix:{{ app_socket }} -e $RAILS_ENV config.ru'
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

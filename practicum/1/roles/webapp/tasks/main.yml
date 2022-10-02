@@ -1,4 +1,4 @@
-  - name: "Install app dependencies"
+  - name: "Install {{ app_name }} dependencies"
     ansible.builtin.yum:
       name: "{{ item }}"
       update_cache: yes
@@ -24,59 +24,101 @@
       - "nodejs"
     become: true
   
-  - name: "Run rbenv installer if .rbenv/bin/rbenv does not exist on the remote host"
-    ansible.builtin.script: files/rbenv_installer.sh
-    args:
-      creates: /home/s045724/.rbenv/bin/rbenv
+  - name: "Clone a github rbenv repository"
+    ansible.builtin.git:
+      repo: https://github.com/rbenv/rbenv.git
+      dest: /home/{{ app_user }}/.rbenv
+      clone: yes
+      update: no
 
-  - name: "Copy xpaste files"
+  - name: "Clone a github ruby-build repository"
+    ansible.builtin.git:
+      repo: https://github.com/rbenv/ruby-build.git
+      dest: /home/{{ app_user }}/.rbenv/plugins/ruby-build
+      clone: yes
+      update: no
+  
+  - name: "Add rbenv init to /.bash_profile"
+    ansible.builtin.lineinfile:
+      path: /home/{{ app_user }}/.bash_profile
+      insertafter: 'export PATH'
+      line: 'eval "$(~/.rbenv/bin/rbenv init - bash)"'
+      state: present
+
+  - name: "Reload bash profile"
+    ansible.builtin.command: bash -lc 'source ~/.bash_profile'
+
+  - name: "Is ruby installed"
+    block:
+      - name: "Check ruby {{ ruby_version }} installed" 
+        ansible.builtin.command: bash -lc 'rbenv versions | grep {{ ruby_version }}'
+    rescue:
+      - name: "Install ruby {{ ruby_version }}"
+        ansible.builtin.command: bash -lc 'rbenv install {{ ruby_version }}'
+        args:
+          creates: /home/{{ app_user }}/.rbenv/versions/{{ ruby_version }}/bin/
+      - name: "Set global ruby {{ ruby_version }}"
+        ansible.builtin.command: bash -lc 'rbenv global {{ ruby_version }}'
+
+  - name: "Copy {{ app_name }} files"
     ansible.builtin.copy:
       src: files/xpaste/
-      dest: /app/
-      owner: s045724
-      group: s045724
+      dest: "{{ app_path }}"
+      owner: "{{ app_user }}"
+      group: "{{ app_user }}"
       mode: 0644
       force: no
     become: true
   
   - name: "Replace main nginx config"
-    ansible.builtin.copy:
-      src: files/nginx.conf
+    ansible.builtin.template:
+      src: nginx.conf.j2
       dest: /etc/nginx/nginx.conf
-      owner: s045724
-      group: s045724
+      owner: "{{ app_user }}"
+      group: "{{ app_user }}"
       mode: 0644
     become: true
   
   - name: "Run bundle config"
-    ansible.builtin.command: bash -lc "cd /app/ && bundle config build.nokogiri --use-system-libraries"
+    ansible.builtin.command: bash -lc 'cd {{ app_path }} && bundle config build.nokogiri --use-system-libraries'
   
   - name: "Run bundle install"
-    ansible.builtin.command: bash -lc "cd /app/ && bundle install --clean --no-cache --without development"
-    register: result
-    failed_when:
-      - result.rc == 0
-      - '"No such" not in result.stdout'
+    ansible.builtin.command: bash -lc 'cd {{ app_path }} && bundle install --clean --no-cache --without development'
+    register: command_result
+    failed_when: "'FAILED' in command_result.stderr"
   
   - name: "Copy service file"
-    ansible.builtin.copy:
-      src: files/xpaste.service
-      dest: /etc/systemd/system/
-      owner: s045724
-      group: s045724
+    ansible.builtin.template:
+      src: xpaste.service.j2
+      dest: /etc/systemd/system/{{ app_name }}.service
+      owner: "{{ app_user }}"
+      group: "{{ app_user }}"
       mode: 0644
     become: true
+    notify:
+      - Reload systemctl
   
-  - name: "Copy env file"
-    ansible.builtin.copy:
-      src: files/env.conf
-      dest: /etc/systemd/system/xpaste.service.d/
-      owner: s045724
-      group: s045724
-      mode: 0644
-    become: true
-  
-  - name: "Reload systemctl"
-    ansible.builtin.command: systemctl daemon-reload
+  - name: "Create /etc/systemd/system/{{ app_name }}.service.d/ dir"
+    ansible.builtin.file:
+      path: /etc/systemd/system/{{ app_name }}.service.d/
+      state: directory
+      mode: 0755
     become: true
 
+  - name: "Copy environment file"
+    ansible.builtin.template:
+      src: env.conf.j2
+      dest: /etc/systemd/system/{{ app_name }}.service.d/env.conf
+      owner: "{{ app_user }}"
+      group: "{{ app_user }}"
+      mode: 0644
+    become: true
+    notify:
+      - Reload systemctl
+
+  - name: "Start service xpaste"
+    ansible.builtin.service:
+      name: xpaste.service
+      state: started
+      enabled: yes
+    become: true
