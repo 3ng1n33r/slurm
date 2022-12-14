@@ -1,0 +1,25 @@
+---
+elasticsearch_version: '7.x'
+elasticsearch_package: elasticsearch
+
+elasticsearch_network_host: localhost
+elasticsearch_http_port: 9200
+
+elasticsearch_heap_size_min: 1g
+elasticsearch_heap_size_max: 2g
+
+elasticsearch_extra_options: ''
+
+kibana_version: "7.x"
+kibana_package: kibana
+
+kibana_config_template: kibana.yml.j2
+kibana_config_file_path: /etc/kibana/kibana.yml
+
+kibana_server_port: 5601
+#kibana_server_host: "0.0.0.0"
+kibana_server_host: localhost
+
+kibana_elasticsearch_url: "http://localhost:9200"
+kibana_elasticsearch_username: ""
+kibana_elasticsearch_password: ""

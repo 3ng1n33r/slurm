@@ -1,0 +1,28 @@
+---
+
+- include_tasks: setup-RedHat.yml
+  when: ansible_os_family == 'RedHat'
+
+- include_tasks: setup-Debian.yml
+  when: ansible_os_family == 'Debian'
+
+
+- name: Install Fluent Bit.
+  package:
+    name: "{{ fluentbit_package }}"
+    state: present
+
+- name: Ensure Fluent Bit is started and enabled at boot.
+  service:
+    name: fluent-bit
+    state: started
+    enabled: true
+
+- name: Copy Fluent Bit configuration.
+  template:
+    src: "{{ fluentbit_config_template }}"
+    dest: "{{ fluentbit_config_file_path }}"
+    owner: root
+    group: root
+    mode: 0644
+  notify: restart fluent-bit

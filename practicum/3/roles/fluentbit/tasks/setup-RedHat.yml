@@ -1,0 +1,12 @@
+---
+
+- name: Add Fluent Bit GPG key.
+  rpm_key:
+    key: https://packages.fluentbit.io/fluentbit.key
+    state: present
+
+- name: Add Fluent Bit repository.
+  template:
+    src: fluentbit.repo.j2
+    dest: /etc/yum.repos.d/fluentbit.repo
+    mode: 0644

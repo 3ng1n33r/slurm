@@ -1,0 +1,11 @@
+---
+- name: Install and configure stack.
+  hosts: stack
+  become: true
+
+  roles:
+    - node_exporter
+    - prometheus
+    - elasticsearch
+    - fluentbit
+     

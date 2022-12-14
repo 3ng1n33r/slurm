@@ -1,0 +1,7 @@
+---
+
+fluentbit_package: fluent-bit
+
+fluentbit_config_template: fluent-bit.conf.j2
+fluentbit_config_file_path: /etc/fluent-bit/fluent-bit.conf
+
