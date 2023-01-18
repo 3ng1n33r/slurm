@@ -1,0 +1,14 @@
+#image_id = "fd82tb3u07rkdkfte3dn"
+image_name = "nginx"
+
+vm_count = 3
+
+cidr_blocks = [
+  ["192.168.10.0/24"],
+  ["192.168.20.0/24"],
+  ["192.168.30.0/24"],
+]
+
+#YC_FOLDER_ID = ""
+#YC_CLOUD_ID = ""
+#YC_TOKEN = ""
