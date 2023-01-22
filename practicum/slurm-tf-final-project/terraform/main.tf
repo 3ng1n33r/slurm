@@ -3,13 +3,6 @@ data "yandex_compute_image" "this" {
   folder_id = "${var.YC_FOLDER_ID}"
 }
 
-data "yandex_vpc_network" "this" {
-  network_id = "${yandex_vpc_network.this.id}"
-  depends_on = [
-    yandex_vpc_subnet.this,
-  ]
-}
-
 resource "yandex_iam_service_account" "this" {
   name        = "ig-sa"
   description = "service account to manage IG"
@@ -55,7 +48,7 @@ resource "yandex_compute_instance_group" "this" {
 
     network_interface {
       network_id = "${yandex_vpc_network.this.id}"
-      subnet_ids = "${data.yandex_vpc_network.this.subnet_ids}"
+      subnet_ids = [for k, v in yandex_vpc_subnet.this : yandex_vpc_subnet.this[k].id]
     }
 
     metadata = {
@@ -76,5 +69,10 @@ resource "yandex_compute_instance_group" "this" {
   deploy_policy {
     max_unavailable = 1
     max_expansion = 0
+  }
+  
+  application_load_balancer {
+    target_group_name        = "target-group-1"
+    target_group_description = "load balancer target group"
   }
 }

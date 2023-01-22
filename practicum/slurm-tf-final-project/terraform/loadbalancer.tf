@@ -1,21 +1,7 @@
-resource "yandex_alb_target_group" "this" {
-  name           = "target-group-1"
-  depends_on          = [
-    yandex_compute_instance_group.this,
-  ]
-  dynamic "target" {
-    for_each = yandex_compute_instance_group.this.instances
-    content {
-      subnet_id    = target.value.network_interface.0.subnet_id
-      ip_address   = target.value.network_interface.0.ip_address
-    }
-  }
-}
-
 resource "yandex_alb_backend_group" "this" {
   name                     = "backend-group-1"
   depends_on          = [
-    yandex_alb_target_group.this,
+    yandex_compute_instance_group.this,
   ]
   session_affinity {
     connection {
@@ -27,7 +13,7 @@ resource "yandex_alb_backend_group" "this" {
     name                   = "http-backend-1"
     weight                 = 1
     port                   = 80
-    target_group_ids       = ["${yandex_alb_target_group.this.id}"]
+    target_group_ids       = ["${yandex_compute_instance_group.this.application_load_balancer.*.target_group_id[0]}"]
     load_balancing_config {
       panic_threshold      = 90
     }    
