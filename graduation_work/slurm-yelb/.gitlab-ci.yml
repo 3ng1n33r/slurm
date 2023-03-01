@@ -1,0 +1,124 @@
+stages:
+  - lint
+  - build
+  - test
+  - cleanup
+  - push
+  - deploy
+  - rollback
+
+lint-yaml:
+  stage: lint
+  image:
+    name: cytopia/yamllint
+    entrypoint: ["/bin/ash", "-c"]
+  script:
+    - yamllint -f colored .
+
+lint-helm:
+  stage: lint
+  image: c8h11no2/kubectl-helm:0.2
+  variables:
+    KUBECONFIG: /tmp/.kubeconfig
+  script:
+    - kubectl config set-cluster k8s --insecure-skip-tls-verify=true --server=$K8S_API_URL
+    - kubectl config set-credentials ci --token=$K8S_CI_TOKEN
+    - kubectl config set-context ci --cluster=k8s --user=ci
+    - kubectl config use-context ci
+    - helm lint .helm
+
+build yelb-ui:
+  stage: build
+  script:
+    - docker build -t $CI_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/ui:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHORT_SHA ./yelb-ui
+
+build yelb-appserver:
+  stage: build
+  script:
+    - docker build -t $CI_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/appserver:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHORT_SHA ./yelb-appserver
+
+test:
+  stage: test
+  image:
+    name: docker/compose:1.29.2
+    entrypoint: [""]
+  script:
+    - docker-compose
+        -p "$CI_PROJECT_NAME"_"$CI_COMMIT_SHORT_SHA"
+      up
+        --abort-on-container-exit
+        --exit-code-from test
+        --quiet-pull
+
+cleanup:
+  stage: cleanup
+  image:
+    name: docker/compose:1.29.2
+    entrypoint: [""]
+  script:
+    - docker-compose -p "$CI_PROJECT_NAME"_"$CI_COMMIT_SHORT_SHA" down
+  when: always
+
+push yelb-ui:
+  stage: push
+  before_script:
+    - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $CI_REGISTRY
+  script:
+    - docker push $CI_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/ui:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHORT_SHA
+  only:
+    - main
+
+push yelb-appserver:
+  stage: push
+  before_script:
+    - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $CI_REGISTRY
+  script:
+    - docker push $CI_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/appserver:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHORT_SHA
+  only:
+    - main
+
+deploy:
+  stage: deploy
+  image: c8h11no2/kubectl-helm:0.2
+  variables:
+    KUBECONFIG: /tmp/.kubeconfig
+    ENVIRONMENT: production
+  script:
+    - kubectl config set-cluster k8s --insecure-skip-tls-verify=true --server=$K8S_API_URL
+    - kubectl config set-credentials ci --token=$K8S_CI_TOKEN
+    - kubectl config set-context ci --cluster=k8s --user=ci
+    - kubectl config use-context ci
+    - helm upgrade --install $CI_PROJECT_PATH_SLUG .helm
+        --set ui.image=$CI_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/ui
+        --set ui.imageTag=$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHORT_SHA
+        --set appserver.image=$CI_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/appserver
+        --set appserver.imageTag=$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHORT_SHA
+        --set db.host=$APP_DB
+        --set ingress.host=$APP_URL
+        --namespace $CI_PROJECT_PATH_SLUG-$ENVIRONMENT
+        --wait
+        --timeout 300s
+        --atomic
+        --debug
+  only:
+    - main
+
+rollback:
+  stage: rollback
+  image: c8h11no2/kubectl-helm:0.2
+  variables:
+    KUBECONFIG: /tmp/.kubeconfig
+    ENVIRONMENT: production
+  script:
+    - kubectl config set-cluster k8s --insecure-skip-tls-verify=true --server=$K8S_API_URL
+    - kubectl config set-credentials ci --token=$K8S_CI_TOKEN
+    - kubectl config set-context ci --cluster=k8s --user=ci
+    - kubectl config use-context ci
+    - helm rollback $CI_PROJECT_PATH_SLUG 0
+        --namespace $CI_PROJECT_PATH_SLUG-$ENVIRONMENT
+        --wait
+        --timeout 300s
+        --debug
+  only:
+    - main
+  when: manual

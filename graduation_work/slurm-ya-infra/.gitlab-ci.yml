@@ -1,0 +1,60 @@
+variables:
+  TF_ADDRESS: "https://s045724.gitlab.yandexcloud.net/api/v4/projects/${CI_PROJECT_ID}/terraform/state/${CI_PROJECT_NAME}-${CI_COMMIT_BRANCH}"
+  TF_LOG: info
+  TF_CLI_CONFIG_FILE: .terraformrc
+
+image:
+  name: hashicorp/terraform:latest
+  entrypoint:
+    - '/usr/bin/env'
+    - 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+
+stages:
+  - validate
+  - plan
+  - apply
+  - destroy
+
+before_script:
+  - export YC_TOKEN=${YC_TOKEN}
+  - export YC_CLOUD_ID=${YC_CLOUD_ID}
+  - export YC_FOLDER_ID=${YC_FOLDER_ID}
+  - export TF_VAR_YC_FOLDER_ID=${YC_FOLDER_ID}
+  - >- 
+        terraform init
+        -backend-config="address=${TF_ADDRESS}"
+        -backend-config="lock_address=${TF_ADDRESS}/lock"
+        -backend-config="unlock_address=${TF_ADDRESS}/lock"
+        -backend-config="username=${TF_USERNAME}"
+        -backend-config="password=${TF_PASSWORD}"
+        -backend-config="lock_method=POST"
+        -backend-config="unlock_method=DELETE"
+        -backend-config="retry_wait_min=5"
+
+validate:
+  stage: validate
+  script:
+    - terraform validate
+
+plan:
+  stage: plan
+  script:
+    - terraform plan -out="planfile"
+  dependencies:
+    - validate
+  artifacts:
+    paths:
+      - planfile
+
+apply:
+  stage: apply
+  script:
+    - terraform apply -input=false "planfile"
+  dependencies:
+    - plan
+
+destroy: 
+  stage: destroy
+  script:
+    - terraform destroy --auto-approve
+  when: manual

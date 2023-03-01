@@ -1,0 +1,45 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: yelb-db
+spec:
+  selector:
+    matchLabels:
+      app: yelb-db
+  replicas: 1
+  serviceName: yelb-db
+  template:
+    metadata:
+      labels:
+        app: yelb-db
+    spec:
+      containers:
+      - name: yelb-db
+        image: c8h11no2/yelb-db-6432:0.7
+        ports:
+        - containerPort: 6432
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: standard
+      resources:
+        requests:
+          storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: yelb-db
+spec:
+  ports:
+    - port: 6432
+      targetPort: 6432
+  selector:
+    app: yelb-db
+  type: ClusterIP

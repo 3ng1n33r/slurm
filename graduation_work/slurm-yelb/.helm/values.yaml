@@ -1,0 +1,41 @@
+# Default values for flask-app.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+imagePullSecret: cicd-gitlab-registry
+
+ui:
+  replicaCount: 2
+
+  image: mreferre/yelb-ui
+  imageTag: "0.10"
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+appserver:
+  replicaCount: 2
+
+  #image: mreferre/yelb-appserver
+  #imageTag: "0.7"
+  image: c8h11no2/yelb-appserver-6432
+  imageTag: "0.1"
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+db:
+  host: yelb-db
+  
+ingress:
+  host: app-51-250-45-154.nip.io
